@@ -1,14 +1,11 @@
-import React, {useRef, useEffect, useState} from 'react';
-import {BackHandler, ToastAndroid, StatusBar} from 'react-native';
+import {useRef, useEffect, useState} from 'react';
+import {BackHandler, ToastAndroid, StatusBar, View} from 'react-native';
 import WebView, {WebViewNavigation} from 'react-native-webview';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import {APP_URL, STATUS_BAR_COLOR} from './utils';
 
 const App = () => {
-  // app url
-  const APP_URL = 'https://app.getgaruda.com';
-
-  // State to track status bar color
-  const statusBarColor = '#20232a';
+  const insets = useSafeAreaInsets();
 
   // Ref to WebView component
   const webViewRef = useRef<WebView | null>(null);
@@ -60,9 +57,12 @@ const App = () => {
   return (
     <SafeAreaView
       edges={['right', 'top', 'left']}
-      style={{flex: 1, backgroundColor: statusBarColor}}>
+      style={{
+        flex: 1,
+        backgroundColor: STATUS_BAR_COLOR,
+      }}>
       {/* Status bar */}
-      <StatusBar backgroundColor={statusBarColor} />
+      <StatusBar backgroundColor={STATUS_BAR_COLOR} />
 
       {/* WebView component */}
       <WebView
@@ -73,6 +73,9 @@ const App = () => {
         startInLoadingState={true} // Start with loading indicator
         automaticallyAdjustContentInsets={false} // Do not adjust content insets automatically
         onNavigationStateChange={handleNavigationStateChange} // Handle navigation state change
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
       />
     </SafeAreaView>
   );
