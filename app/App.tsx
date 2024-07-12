@@ -1,11 +1,20 @@
 import {useRef, useEffect, useState} from 'react';
-import {BackHandler, ToastAndroid, StatusBar, View} from 'react-native';
+import {
+  BackHandler,
+  ToastAndroid,
+  StatusBar,
+  View,
+  Platform,
+} from 'react-native';
 import WebView, {WebViewNavigation} from 'react-native-webview';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
 import {APP_URL, STATUS_BAR_COLOR} from './utils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const App = () => {
   const insets = useSafeAreaInsets();
+
+  const [statusBarColor, setStatusBarColor] = useState('');
 
   // Ref to WebView component
   const webViewRef = useRef<WebView | null>(null);
@@ -54,15 +63,61 @@ const App = () => {
     setCanGoBack(navState.canGoBack);
   };
 
+  // Function to get local storage value for statusBarColor
+  const getLocalStorage = async () => {
+    const statusBarColor = await AsyncStorage.getItem('statusBarColor');
+    if (statusBarColor) {
+      setStatusBarColor(statusBarColor);
+      // StatusBar.setBackgroundColor is not available on iOS, so adding it only for android
+      if (Platform.OS === 'android') {
+        StatusBar.setBackgroundColor(statusBarColor, true);
+      }
+    }
+  };
+
+  useEffect(() => {
+    getLocalStorage();
+  }, []);
+
+  // Function to handle messages from WebView
+  const postMessage = async (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      console.log('postMessage data', data?.data);
+
+      // // Handle statusBarColor
+      if (data?.data?.statusBarColor) {
+        // storing the token in AsyncStorage
+        await AsyncStorage.setItem(
+          'statusBarColor',
+          data?.data?.statusBarColor,
+        );
+        setStatusBarColor(data?.data?.statusBarColor);
+        // StatusBar.setBackgroundColor is not available on iOS, so adding it only for android
+        if (Platform.OS === 'android') {
+          StatusBar.setBackgroundColor(data?.data?.statusBarColor, true);
+        }
+      }
+
+      // // Handle fcmToken
+      // if (data.fcmToken) {
+      //   await AsyncStorage.setItem('fcmToken', data.fcmToken);
+      //   console.log('FCM token stored in AsyncStorage');
+      // }
+    } catch (error) {
+      console.error('Failed to handle postMessage event', error);
+    }
+  };
+
   return (
     <SafeAreaView
       edges={['right', 'top', 'left']}
       style={{
         flex: 1,
-        backgroundColor: STATUS_BAR_COLOR,
+        backgroundColor: statusBarColor || STATUS_BAR_COLOR,
       }}>
       {/* Status bar */}
-      <StatusBar backgroundColor={STATUS_BAR_COLOR} />
+      <StatusBar backgroundColor={statusBarColor || STATUS_BAR_COLOR} />
 
       {/* WebView component */}
       <WebView
@@ -76,6 +131,7 @@ const App = () => {
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
         bounces={false}
+        onMessage={postMessage}
       />
     </SafeAreaView>
   );
