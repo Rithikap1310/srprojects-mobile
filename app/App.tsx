@@ -109,6 +109,10 @@ const App = () => {
     }
   };
 
+  const INJECTED_JAVASCRIPT = `(function() {
+    const meta = document.createElement('meta'); meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'); meta.setAttribute('name', 'viewport'); document.getElementsByTagName('head')[0].appendChild(meta);
+  })();`;
+
   return (
     <SafeAreaView
       edges={['right', 'top', 'left']}
@@ -132,6 +136,10 @@ const App = () => {
         showsVerticalScrollIndicator={false}
         bounces={false}
         onMessage={postMessage}
+        androidLayerType="hardware" // to fix android lag lag issues
+        scalesPageToFit={false}
+        injectedJavaScript={INJECTED_JAVASCRIPT}
+        setBuiltInZoomControls={false}
       />
     </SafeAreaView>
   );
