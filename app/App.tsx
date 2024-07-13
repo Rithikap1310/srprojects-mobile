@@ -99,6 +99,12 @@ const App = () => {
         }
       }
 
+      if (data?.data?.status === 'logout') {
+        await AsyncStorage.clear();
+        console.log('Logout successful');
+        setStatusBarColor('');
+      }
+
       // // Handle fcmToken
       // if (data.fcmToken) {
       //   await AsyncStorage.setItem('fcmToken', data.fcmToken);
@@ -140,6 +146,7 @@ const App = () => {
         scalesPageToFit={false}
         injectedJavaScript={INJECTED_JAVASCRIPT}
         setBuiltInZoomControls={false}
+        incognito={true}
       />
     </SafeAreaView>
   );
