@@ -146,7 +146,6 @@ const App = () => {
         scalesPageToFit={false}
         injectedJavaScript={INJECTED_JAVASCRIPT}
         setBuiltInZoomControls={false}
-        incognito={true}
       />
     </SafeAreaView>
   );
