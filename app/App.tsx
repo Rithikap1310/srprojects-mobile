@@ -1,15 +1,19 @@
-import {useRef, useEffect, useState} from 'react';
+import { useRef, useEffect, useState } from 'react';
 import {
   BackHandler,
   ToastAndroid,
   StatusBar,
   View,
   Platform,
+  Alert,
 } from 'react-native';
-import WebView, {WebViewNavigation} from 'react-native-webview';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import {APP_URL, STATUS_BAR_COLOR} from './utils';
+import WebView, { WebViewNavigation } from 'react-native-webview';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { APP_URL, STATUS_BAR_COLOR } from './utils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { request, PERMISSIONS } from 'react-native-permissions';
+import Share from 'react-native-share';
+import RNFetchBlob from 'rn-fetch-blob';
 
 const App = () => {
   const insets = useSafeAreaInsets();
@@ -26,6 +30,20 @@ const App = () => {
   const [backClickCount, setBackClickCount] = useState<number>(0);
 
   useEffect(() => {
+    // Request Permission from user
+    const requestPermissions = async () => {
+      if (Platform.OS === 'ios') {
+        await request(PERMISSIONS.IOS.CAMERA);
+        await request(PERMISSIONS.IOS.PHOTO_LIBRARY);
+      }
+      else if (Platform.OS === 'android') {
+        await request(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE);
+        await request(PERMISSIONS.ANDROID.CAMERA);
+      }
+    };
+
+    requestPermissions();
+
     // Function to handle back button press
     const backAction = (): boolean => {
       if (canGoBack) {
@@ -104,7 +122,13 @@ const App = () => {
         console.log('Logout successful');
         setStatusBarColor('');
       }
+      if (data?.data?.url) {
+        await Share.open({ url: data.data.url }); // Share the URL
+      }
 
+      if (data?.data?.downloadurl) {
+        downloadFile(data.data.downloadurl);
+      }
       // // Handle fcmToken
       // if (data.fcmToken) {
       //   await AsyncStorage.setItem('fcmToken', data.fcmToken);
@@ -114,7 +138,30 @@ const App = () => {
       console.error('Failed to handle postMessage event', error);
     }
   };
+  // Function to download a file from the given URL
+  const downloadFile = (url: string) => {
+    const { config, fs } = RNFetchBlob;
+    let DownloadDir = fs.dirs.DownloadDir; // Downloads directory
 
+    config({
+      fileCache: true,
+      addAndroidDownloads: {
+        useDownloadManager: true,
+        notification: true,
+        path: DownloadDir + '/' + url.split('/').pop(), // Set the path where the file will be saved
+        description: 'Downloading file.',
+      },
+    })
+      .fetch('GET', url)
+      .then((res) => {
+        Alert.alert('Download Success', 'File downloaded successfully.');
+        console.log('The file saved to ', res.path());
+      })
+      .catch((error) => {
+        Alert.alert('Download Error', 'Failed to download file.');
+        console.error('Failed to download file', error);
+      });
+  };
   const INJECTED_JAVASCRIPT = `(function() {
     const meta = document.createElement('meta'); meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'); meta.setAttribute('name', 'viewport'); document.getElementsByTagName('head')[0].appendChild(meta);
   })();`;
@@ -132,7 +179,7 @@ const App = () => {
       {/* WebView component */}
       <WebView
         ref={webViewRef}
-        source={{uri: APP_URL}}
+        source={{ uri: APP_URL }}
         javaScriptEnabled={true} // Enable JavaScript
         domStorageEnabled={true} // Enable DOM storage
         startInLoadingState={true} // Start with loading indicator
@@ -146,6 +193,7 @@ const App = () => {
         scalesPageToFit={false}
         injectedJavaScript={INJECTED_JAVASCRIPT}
         setBuiltInZoomControls={false}
+        mediaPlaybackRequiresUserAction={false}
       />
     </SafeAreaView>
   );
