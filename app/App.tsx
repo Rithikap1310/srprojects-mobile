@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import {useRef, useEffect, useState} from 'react';
 import {
   BackHandler,
   ToastAndroid,
@@ -7,11 +7,11 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import WebView, { WebViewNavigation } from 'react-native-webview';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { APP_URL, STATUS_BAR_COLOR } from './utils';
+import WebView, {WebViewNavigation} from 'react-native-webview';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import {APP_URL, STATUS_BAR_COLOR} from './utils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { request, PERMISSIONS } from 'react-native-permissions';
+import {request, PERMISSIONS} from 'react-native-permissions';
 import Share from 'react-native-share';
 import RNFetchBlob from 'rn-fetch-blob';
 
@@ -35,8 +35,7 @@ const App = () => {
       if (Platform.OS === 'ios') {
         await request(PERMISSIONS.IOS.CAMERA);
         await request(PERMISSIONS.IOS.PHOTO_LIBRARY);
-      }
-      else if (Platform.OS === 'android') {
+      } else if (Platform.OS === 'android') {
         await request(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE);
         await request(PERMISSIONS.ANDROID.CAMERA);
       }
@@ -101,7 +100,7 @@ const App = () => {
   const postMessage = async (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('postMessage data', data?.data);
+      // console.log('postMessage data', data?.data);
 
       // // Handle statusBarColor
       if (data?.data?.statusBarColor) {
@@ -122,8 +121,23 @@ const App = () => {
         console.log('Logout successful');
         setStatusBarColor('');
       }
+      if (data?.data?.videourl) {
+        await Share.open({url: data.data.url}); // Share the URL
+      }
       if (data?.data?.url) {
-        await Share.open({ url: data.data.url }); // Share the URL
+        const imageUrl = data.data.url;
+
+        // Fetch the image and convert it to base64
+        const base64Image = await RNFetchBlob.config({
+          fileCache: false,
+        })
+          .fetch('GET', imageUrl)
+          .then(resp => resp.base64());
+
+        // Share the image using the base64 string
+        await Share.open({
+          url: `data:image/jpeg;base64,${base64Image}`, // Adjust MIME type as needed
+        });
       }
 
       if (data?.data?.downloadurl) {
@@ -140,7 +154,7 @@ const App = () => {
   };
   // Function to download a file from the given URL
   const downloadFile = (url: string) => {
-    const { config, fs } = RNFetchBlob;
+    const {config, fs} = RNFetchBlob;
     let DownloadDir = fs.dirs.DownloadDir; // Downloads directory
 
     config({
@@ -153,11 +167,11 @@ const App = () => {
       },
     })
       .fetch('GET', url)
-      .then((res) => {
+      .then(res => {
         Alert.alert('Download Success', 'File downloaded successfully.');
         console.log('The file saved to ', res.path());
       })
-      .catch((error) => {
+      .catch(error => {
         Alert.alert('Download Error', 'Failed to download file.');
         console.error('Failed to download file', error);
       });
@@ -179,7 +193,7 @@ const App = () => {
       {/* WebView component */}
       <WebView
         ref={webViewRef}
-        source={{ uri: APP_URL }}
+        source={{uri: APP_URL}}
         javaScriptEnabled={true} // Enable JavaScript
         domStorageEnabled={true} // Enable DOM storage
         startInLoadingState={true} // Start with loading indicator
