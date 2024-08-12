@@ -121,9 +121,9 @@ const App = () => {
         console.log('Logout successful');
         setStatusBarColor('');
       }
-      // if (data?.data?.url) {
-      //   await Share.open({ url: data.data.url }); // Share the URL
-      // }
+      if (data?.data?.videourl) {
+        await Share.open({url: data.data.url}); // Share the URL
+      }
       if (data?.data?.url) {
         const imageUrl = data.data.url;
 
