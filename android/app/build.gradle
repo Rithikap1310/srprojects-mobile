@@ -79,8 +79,8 @@ android {
         applicationId "com.getgaruda"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "1.2"
     }
     signingConfigs {
         debug {
@@ -90,9 +90,9 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('garuda.keystore')
+            storeFile file('getgaruda.keystore')
             storePassword 'garuda@123'
-            keyAlias 'garuda'
+            keyAlias 'getgaruda'
             keyPassword 'garuda@123'
         }
     }
