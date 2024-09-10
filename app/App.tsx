@@ -122,7 +122,7 @@ const App = () => {
         setStatusBarColor('');
       }
       if (data?.data?.videourl) {
-        await Share.open({url: data.data.url}); // Share the URL
+        await Share.open({url: data.data.videourl}); // Share the URL
       }
       if (data?.data?.url) {
         const imageUrl = data.data.url;
@@ -153,9 +153,33 @@ const App = () => {
     }
   };
   // Function to download a file from the given URL
+  // const downloadFile = (url: string) => {
+  //   const {config, fs} = RNFetchBlob;
+  //   let DownloadDir = fs.dirs.DownloadDir; // Downloads directory
+
+  //   config({
+  //     fileCache: true,
+  //     addAndroidDownloads: {
+  //       useDownloadManager: true,
+  //       notification: true,
+  //       path: DownloadDir + '/' + url.split('/').pop(), // Set the path where the file will be saved
+  //       description: 'Downloading file.',
+  //     },
+  //   })
+  //     .fetch('GET', url)
+  //     .then(res => {
+  //       Alert.alert('Download Success', 'File downloaded successfully.');
+  //       console.log('The file saved to ', res.path());
+  //     })
+  //     .catch(error => {
+  //       Alert.alert('Download Error', 'Failed to download file.');
+  //       console.error('Failed to download file', error);
+  //     });
+  // };
   const downloadFile = (url: string) => {
     const {config, fs} = RNFetchBlob;
-    let DownloadDir = fs.dirs.DownloadDir; // Downloads directory
+    let DownloadDir =
+      Platform.OS === 'android' ? fs.dirs.DownloadDir : fs.dirs.DocumentDir; // Appropriate directory for each platform
 
     config({
       fileCache: true,
@@ -165,6 +189,10 @@ const App = () => {
         path: DownloadDir + '/' + url.split('/').pop(), // Set the path where the file will be saved
         description: 'Downloading file.',
       },
+      path:
+        Platform.OS === 'ios'
+          ? DownloadDir + '/' + url.split('/').pop()
+          : undefined, // Path for iOS
     })
       .fetch('GET', url)
       .then(res => {
@@ -176,6 +204,7 @@ const App = () => {
         console.error('Failed to download file', error);
       });
   };
+
   const INJECTED_JAVASCRIPT = `(function() {
     const meta = document.createElement('meta'); meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'); meta.setAttribute('name', 'viewport'); document.getElementsByTagName('head')[0].appendChild(meta);
   })();`;
