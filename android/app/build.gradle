@@ -79,8 +79,8 @@ android {
         applicationId "com.getgaruda"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.2"
+        versionCode 6
+        versionName "1.5"
     }
     signingConfigs {
         debug {
@@ -108,6 +108,9 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+    lint {
+          baseline = file("lint-baseline.xml")
+      }
 }
 
 dependencies {
