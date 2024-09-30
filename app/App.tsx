@@ -200,13 +200,86 @@ const App = () => {
   };
 
 
+  // const downloadFile = async (url: string) => {
+  //   try {
+  //     const fileName = url.split('/').pop(); // Get the file name
+  //     const fileExtension = fileName?.split('.').pop(); // Extract file extension
+  //     const downloadDest = Platform.OS === 'android'
+  //       ? `${RNFS.DownloadDirectoryPath}/${fileName}`
+  //       : `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+  //     // Download the file using react-native-fs
+  //     const downloadResult = await RNFS.downloadFile({
+  //       fromUrl: url,
+  //       toFile: downloadDest,
+  //       background: true, // Continue in background for Android
+  //       discretionary: true, // Discretionary download for iOS
+  //     }).promise;
+
+  //     if (downloadResult && downloadResult.statusCode === 200) {
+  //       Alert.alert('Download Success', `File downloaded to ${downloadDest}`);
+  //     } else {
+  //       throw new Error('Download failed');
+  //     }
+  //   } catch (error) {
+  //     Alert.alert('Download Error', 'Failed to download file.');
+  //     console.error('Failed to download file:', error);
+  //   }
+  // };
+
+
+  // Function to download and share the Excel file
+  // const shareExcelFile = async (excelUrl: string) => {
+  //   try {
+  //     let fileName = excelUrl.split('/').pop(); // Get the file name from the URL
+
+  //     // Ensure a valid filename is retrieved, fallback if needed
+  //     if (!fileName || fileName.includes('?')) {
+  //       fileName = 'default_excel_file.xlsx'; // Fallback file name
+  //     }
+
+  //     const downloadDest = Platform.OS === 'android'
+  //       ? `${RNFS.DownloadDirectoryPath}/${fileName}`
+  //       : `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+  //     // Download the Excel file to the device
+  //     const downloadResult = await RNFS.downloadFile({
+  //       fromUrl: excelUrl,
+  //       toFile: downloadDest,
+  //       background: true, // Continue download in the background
+  //       discretionary: true, // Use discretionary download on iOS
+  //     }).promise;
+
+  //     if (downloadResult && downloadResult.statusCode === 200) {
+  //       // console.log('Excel file downloaded successfully', downloadDest);
+
+  //       // Share the downloaded Excel file
+  //       await Share.open({
+  //         url: `file://${downloadDest}`, // Sharing the file with its local file path
+  //         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // MIME type for Excel files
+  //         title: 'Share Excel File',
+  //         subject: 'Check out this Excel file!',
+  //       });
+
+  //       Alert.alert('Success', 'Excel file shared successfully.');
+  //     } else {
+  //       throw new Error('Download failed');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error sharing Excel file:', error);
+  //     Alert.alert('Error', 'Failed to download or share the Excel file.');
+  //   }
+  // };
+
   const downloadFile = async (url: string) => {
     try {
       const fileName = url.split('/').pop(); // Get the file name
       const fileExtension = fileName?.split('.').pop(); // Extract file extension
+
+      // Use ExternalDirectoryPath for Android to avoid storage issues
       const downloadDest = Platform.OS === 'android'
-        ? `${RNFS.DownloadDirectoryPath}/${fileName}`
-        : `${RNFS.DocumentDirectoryPath}/${fileName}`;
+        ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
+        : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
 
       // Download the file using react-native-fs
       const downloadResult = await RNFS.downloadFile({
@@ -227,8 +300,6 @@ const App = () => {
     }
   };
 
-
-  // Function to download and share the Excel file
   const shareExcelFile = async (excelUrl: string) => {
     try {
       let fileName = excelUrl.split('/').pop(); // Get the file name from the URL
@@ -238,9 +309,10 @@ const App = () => {
         fileName = 'default_excel_file.xlsx'; // Fallback file name
       }
 
+      // Use ExternalDirectoryPath for Android to avoid issues with scoped storage
       const downloadDest = Platform.OS === 'android'
-        ? `${RNFS.DownloadDirectoryPath}/${fileName}`
-        : `${RNFS.DocumentDirectoryPath}/${fileName}`;
+        ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
+        : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
 
       // Download the Excel file to the device
       const downloadResult = await RNFS.downloadFile({
@@ -251,7 +323,11 @@ const App = () => {
       }).promise;
 
       if (downloadResult && downloadResult.statusCode === 200) {
-        // console.log('Excel file downloaded successfully', downloadDest);
+        // Check if the file exists before sharing
+        const fileExists = await RNFS.exists(downloadDest);
+        if (!fileExists) {
+          throw new Error('File does not exist after download');
+        }
 
         // Share the downloaded Excel file
         await Share.open({
@@ -272,13 +348,17 @@ const App = () => {
   };
 
 
-  // Function to download and share the PDF file
   const sharePdfFile = async (pdfUrl: string) => {
     try {
       const fileName = pdfUrl.split('/').pop(); // Get the file name from the URL
+
+      // Use ExternalDirectoryPath for Android to avoid scoped storage issues
       const downloadDest = Platform.OS === 'android'
-        ? `${RNFS.DownloadDirectoryPath}/${fileName}` // Download directory for Android
+        ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
         : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
+
+      // Log the download destination for debugging
+      // console.log('Download path:', downloadDest);
 
       // Download the PDF file to the device
       const downloadResult = await RNFS.downloadFile({
@@ -288,8 +368,17 @@ const App = () => {
         discretionary: true, // Use discretionary download on iOS
       }).promise;
 
+      // Log the download result for debugging
+      // console.log('Download result:', downloadResult);
+
+      // Check if the file was successfully downloaded
       if (downloadResult && downloadResult.statusCode === 200) {
-        // console.log('PDF file downloaded successfully', downloadDest);
+        const fileExists = await RNFS.exists(downloadDest);
+        // console.log('File exists:', fileExists);
+
+        if (!fileExists) {
+          throw new Error('File does not exist after download');
+        }
 
         // Share the downloaded PDF file
         await Share.open({
@@ -308,6 +397,7 @@ const App = () => {
       Alert.alert('Error', 'Failed to download or share the PDF file.');
     }
   };
+
   const INJECTED_JAVASCRIPT = `(function() {
     const meta = document.createElement('meta'); meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'); meta.setAttribute('name', 'viewport'); document.getElementsByTagName('head')[0].appendChild(meta);
   })();`;
