@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import {useRef, useEffect, useState} from 'react';
 import {
   BackHandler,
   ToastAndroid,
@@ -7,11 +7,11 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import WebView, { WebViewNavigation } from 'react-native-webview';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { APP_URL, STATUS_BAR_COLOR } from './utils';
+import WebView, {WebViewNavigation} from 'react-native-webview';
+import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import {APP_URL, STATUS_BAR_COLOR} from './utils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { request, PERMISSIONS } from 'react-native-permissions';
+import {request, PERMISSIONS} from 'react-native-permissions';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
 // import RNFetchBlob from 'rn-fetch-blob';
@@ -28,8 +28,7 @@ const App = () => {
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
 
   // State to track back button click count for exit confirmation
-  const [backClickCount, setBackClickCount] = useState<number>(0)
-
+  const [backClickCount, setBackClickCount] = useState<number>(0);
 
   useEffect(() => {
     // Request Permission from user
@@ -65,8 +64,6 @@ const App = () => {
         }
       }
     };
-
-
 
     // Add event listener for hardware back press
     const backHandler = BackHandler.addEventListener(
@@ -125,7 +122,7 @@ const App = () => {
         setStatusBarColor('');
       }
       if (data?.data?.videourl) {
-        await Share.open({ url: data.data.videourl }); // Share the URL
+        await Share.open({url: data.data.videourl}); // Share the URL
       }
       // if (data?.data?.url) {
       //   const imageUrl = data.data.url;
@@ -175,7 +172,6 @@ const App = () => {
         }
       }
 
-
       if (data?.data?.downloadurl) {
         downloadFile(data.data.downloadurl);
       }
@@ -198,7 +194,6 @@ const App = () => {
       console.error('Failed to handle postMessage event', error);
     }
   };
-
 
   // const downloadFile = async (url: string) => {
   //   try {
@@ -226,7 +221,6 @@ const App = () => {
   //     console.error('Failed to download file:', error);
   //   }
   // };
-
 
   // Function to download and share the Excel file
   // const shareExcelFile = async (excelUrl: string) => {
@@ -277,9 +271,10 @@ const App = () => {
       const fileExtension = fileName?.split('.').pop(); // Extract file extension
 
       // Use ExternalDirectoryPath for Android to avoid storage issues
-      const downloadDest = Platform.OS === 'android'
-        ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
-        : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
+      const downloadDest =
+        Platform.OS === 'android'
+          ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
+          : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
 
       // Download the file using react-native-fs
       const downloadResult = await RNFS.downloadFile({
@@ -290,7 +285,8 @@ const App = () => {
       }).promise;
 
       if (downloadResult && downloadResult.statusCode === 200) {
-        Alert.alert('Download Success', `File downloaded to ${downloadDest}`);
+        // Alert.alert('Download Success', `File downloaded to ${downloadDest}`);
+        Alert.alert('Download Success');
       } else {
         throw new Error('Download failed');
       }
@@ -310,9 +306,10 @@ const App = () => {
       }
 
       // Use ExternalDirectoryPath for Android to avoid issues with scoped storage
-      const downloadDest = Platform.OS === 'android'
-        ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
-        : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
+      const downloadDest =
+        Platform.OS === 'android'
+          ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
+          : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
 
       // Download the Excel file to the device
       const downloadResult = await RNFS.downloadFile({
@@ -347,18 +344,18 @@ const App = () => {
     }
   };
 
-
   const sharePdfFile = async (pdfUrl: string) => {
     try {
       const fileName = pdfUrl.split('/').pop(); // Get the file name from the URL
 
       // Use ExternalDirectoryPath for Android to avoid scoped storage issues
-      const downloadDest = Platform.OS === 'android'
-        ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
-        : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
+      const downloadDest =
+        Platform.OS === 'android'
+          ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
+          : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
 
       // Log the download destination for debugging
-      // console.log('Download path:', downloadDest);
+      console.log('Download path:', downloadDest);
 
       // Download the PDF file to the device
       const downloadResult = await RNFS.downloadFile({
@@ -369,12 +366,12 @@ const App = () => {
       }).promise;
 
       // Log the download result for debugging
-      // console.log('Download result:', downloadResult);
+      console.log('Download result:', downloadResult);
 
       // Check if the file was successfully downloaded
       if (downloadResult && downloadResult.statusCode === 200) {
         const fileExists = await RNFS.exists(downloadDest);
-        // console.log('File exists:', fileExists);
+        console.log('File exists:', fileExists);
 
         if (!fileExists) {
           throw new Error('File does not exist after download');
@@ -415,7 +412,7 @@ const App = () => {
       {/* WebView component */}
       <WebView
         ref={webViewRef}
-        source={{ uri: APP_URL }}
+        source={{uri: APP_URL}}
         javaScriptEnabled={true} // Enable JavaScript
         domStorageEnabled={true} // Enable DOM storage
         startInLoadingState={true} // Start with loading indicator
