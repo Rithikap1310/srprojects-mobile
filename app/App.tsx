@@ -1,4 +1,4 @@
-import {useRef, useEffect, useState} from 'react';
+import { useRef, useEffect, useState } from 'react';
 import {
   BackHandler,
   ToastAndroid,
@@ -7,11 +7,11 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import WebView, {WebViewNavigation} from 'react-native-webview';
-import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
-import {APP_URL, STATUS_BAR_COLOR} from './utils';
+import WebView, { WebViewNavigation } from 'react-native-webview';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { APP_URL, STATUS_BAR_COLOR } from './utils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {request, PERMISSIONS} from 'react-native-permissions';
+import { request, PERMISSIONS } from 'react-native-permissions';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
 // import RNFetchBlob from 'rn-fetch-blob';
@@ -122,53 +122,105 @@ const App = () => {
         setStatusBarColor('');
       }
       if (data?.data?.videourl) {
-        await Share.open({url: data.data.videourl}); // Share the URL
+        await Share.open({ url: data.data.videourl }); // Share the URL
       }
+
       // if (data?.data?.url) {
+      //   console.log(`Data Data`, data?.data)
       //   const imageUrl = data.data.url;
+      //   console.log(`Image Url`, imageUrl)
+      //   try {
+      //     // Fetch the image
+      //     const response = await fetch(imageUrl);
+      //     const blob = await response.blob();
 
-      //   // Fetch the image and convert it to base64
-      //   const base64Image = await RNFetchBlob.config({
-      //     fileCache: false,
-      //   })
-      //     .fetch('GET', imageUrl)
-      //     .then(resp => resp.base64());
+      //     // Get the file extension from the URL (e.g., .jpeg, .png)
+      //     const fileExtension = imageUrl.split('.').pop();
 
-      //   // Share the image using the base64 string
-      //   await Share.open({
-      //     url: `data:image/jpeg;base64,${base64Image}`, // Adjust MIME type as needed
-      //   });
+      //     // Convert the Blob into base64 using FileReader
+      //     const reader = new FileReader();
+      //     reader.onloadend = async () => {
+      //       const base64Image = reader.result?.split(',')[1];
+
+      //       // If image conversion to base64 is successful, share it
+      //       if (base64Image) {
+      //         await Share.open({
+      //           url: `data:image/${fileExtension};base64,${base64Image}`,
+      //         });
+      //         Alert.alert('Success', 'Image shared successfully.');
+      //       } else {
+      //         throw new Error('Base64 conversion failed');
+      //       }
+      //     };
+      //     reader.readAsDataURL(blob);
+      //   } catch (error) {
+      //     console.error('Error sharing image:', error);
+      //     Alert.alert('Error', 'Failed to download or share the image.');
+      //   }
       // }
+
       if (data?.data?.url) {
         const imageUrl = data.data.url;
 
         try {
-          // Fetch the image
-          const response = await fetch(imageUrl);
+          // Fetch the image 
+          const response = await fetch(imageUrl, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+              'Accept': 'image/*',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
+          }
+
           const blob = await response.blob();
 
-          // Get the file extension from the URL (e.g., .jpeg, .png)
-          const fileExtension = imageUrl.split('.').pop();
+          if (!blob || blob.size === 0) {
+            throw new Error('Failed to fetch image or image is empty.');
+          }
+
+          let mimeType = blob.type;
+
+          if (!mimeType) {
+            const extension = imageUrl.split('.').pop()?.toLowerCase();
+            const extensionToMime: Record<string, string> = {
+              jpg: 'image/jpeg',
+              jpeg: 'image/jpeg',
+              png: 'image/png',
+              svg: 'image/svg+xml',
+              gif: 'image/gif',
+              webp: 'image/webp',
+            };
+            mimeType = extensionToMime[extension] || 'image/jpeg'; // Default to jpeg
+          }
 
           // Convert the Blob into base64 using FileReader
           const reader = new FileReader();
           reader.onloadend = async () => {
             const base64Image = reader.result?.split(',')[1];
 
-            // If image conversion to base64 is successful, share it
             if (base64Image) {
               await Share.open({
-                url: `data:image/${fileExtension};base64,${base64Image}`,
+                url: `data:${mimeType};base64,${base64Image}`,
               });
               Alert.alert('Success', 'Image shared successfully.');
             } else {
-              throw new Error('Base64 conversion failed');
+              throw new Error('Base64 conversion failed.');
             }
           };
+
+          reader.onerror = (error) => {
+            console.error('FileReader error:', error);
+            Alert.alert('Error', 'Failed to process the image.');
+          };
+
           reader.readAsDataURL(blob);
         } catch (error) {
           console.error('Error sharing image:', error);
-          Alert.alert('Error', 'Failed to download or share the image.');
+          Alert.alert('Error', `Failed to download or share the image: ${error.message}`);
         }
       }
 
@@ -195,86 +247,21 @@ const App = () => {
     }
   };
 
-  // const downloadFile = async (url: string) => {
-  //   try {
-  //     const fileName = url.split('/').pop(); // Get the file name
-  //     const fileExtension = fileName?.split('.').pop(); // Extract file extension
-  //     const downloadDest = Platform.OS === 'android'
-  //       ? `${RNFS.DownloadDirectoryPath}/${fileName}`
-  //       : `${RNFS.DocumentDirectoryPath}/${fileName}`;
-
-  //     // Download the file using react-native-fs
-  //     const downloadResult = await RNFS.downloadFile({
-  //       fromUrl: url,
-  //       toFile: downloadDest,
-  //       background: true, // Continue in background for Android
-  //       discretionary: true, // Discretionary download for iOS
-  //     }).promise;
-
-  //     if (downloadResult && downloadResult.statusCode === 200) {
-  //       Alert.alert('Download Success', `File downloaded to ${downloadDest}`);
-  //     } else {
-  //       throw new Error('Download failed');
-  //     }
-  //   } catch (error) {
-  //     Alert.alert('Download Error', 'Failed to download file.');
-  //     console.error('Failed to download file:', error);
-  //   }
-  // };
-
-  // Function to download and share the Excel file
-  // const shareExcelFile = async (excelUrl: string) => {
-  //   try {
-  //     let fileName = excelUrl.split('/').pop(); // Get the file name from the URL
-
-  //     // Ensure a valid filename is retrieved, fallback if needed
-  //     if (!fileName || fileName.includes('?')) {
-  //       fileName = 'default_excel_file.xlsx'; // Fallback file name
-  //     }
-
-  //     const downloadDest = Platform.OS === 'android'
-  //       ? `${RNFS.DownloadDirectoryPath}/${fileName}`
-  //       : `${RNFS.DocumentDirectoryPath}/${fileName}`;
-
-  //     // Download the Excel file to the device
-  //     const downloadResult = await RNFS.downloadFile({
-  //       fromUrl: excelUrl,
-  //       toFile: downloadDest,
-  //       background: true, // Continue download in the background
-  //       discretionary: true, // Use discretionary download on iOS
-  //     }).promise;
-
-  //     if (downloadResult && downloadResult.statusCode === 200) {
-  //       // console.log('Excel file downloaded successfully', downloadDest);
-
-  //       // Share the downloaded Excel file
-  //       await Share.open({
-  //         url: `file://${downloadDest}`, // Sharing the file with its local file path
-  //         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // MIME type for Excel files
-  //         title: 'Share Excel File',
-  //         subject: 'Check out this Excel file!',
-  //       });
-
-  //       Alert.alert('Success', 'Excel file shared successfully.');
-  //     } else {
-  //       throw new Error('Download failed');
-  //     }
-  //   } catch (error) {
-  //     console.error('Error sharing Excel file:', error);
-  //     Alert.alert('Error', 'Failed to download or share the Excel file.');
-  //   }
-  // };
-
   const downloadFile = async (url: string) => {
     try {
       const fileName = url.split('/').pop(); // Get the file name
       const fileExtension = fileName?.split('.').pop(); // Extract file extension
 
       // Use ExternalDirectoryPath for Android to avoid storage issues
+      // const downloadDest =
+      //   Platform.OS === 'android'
+      //     ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
+      //     : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
+
       const downloadDest =
         Platform.OS === 'android'
-          ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
-          : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
+          ? `${RNFS.DownloadDirectoryPath}/${fileName}` // Save to Downloads folder
+          : `${RNFS.DocumentDirectoryPath}/${fileName}`;
 
       // Download the file using react-native-fs
       const downloadResult = await RNFS.downloadFile({
@@ -365,13 +352,10 @@ const App = () => {
         discretionary: true, // Use discretionary download on iOS
       }).promise;
 
-      // Log the download result for debugging
-      console.log('Download result:', downloadResult);
 
       // Check if the file was successfully downloaded
       if (downloadResult && downloadResult.statusCode === 200) {
         const fileExists = await RNFS.exists(downloadDest);
-        console.log('File exists:', fileExists);
 
         if (!fileExists) {
           throw new Error('File does not exist after download');
@@ -412,7 +396,7 @@ const App = () => {
       {/* WebView component */}
       <WebView
         ref={webViewRef}
-        source={{uri: APP_URL}}
+        source={{ uri: APP_URL }}
         javaScriptEnabled={true} // Enable JavaScript
         domStorageEnabled={true} // Enable DOM storage
         startInLoadingState={true} // Start with loading indicator
