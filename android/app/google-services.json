@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "782360877302",
+    "project_id": "realgo-42856",
+    "storage_bucket": "realgo-42856.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:782360877302:android:5fed6b1838255dfb10f4d7",
+        "android_client_info": {
+          "package_name": "com.getgaruda"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARXrmpLgOsBEmMO77B1IS91PgXSTtKD40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

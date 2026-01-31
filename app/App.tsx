@@ -1,412 +1,504 @@
-import { useRef, useEffect, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
-  BackHandler,
-  ToastAndroid,
-  StatusBar,
-  View,
-  Platform,
   Alert,
+  BackHandler,
+  Platform,
+  StatusBar,
+  ToastAndroid,
+  PermissionsAndroid,
+  LogBox,
 } from 'react-native';
-import WebView, { WebViewNavigation } from 'react-native-webview';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { APP_URL, STATUS_BAR_COLOR } from './utils';
+import WebView, {WebViewNavigation} from 'react-native-webview';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { request, PERMISSIONS } from 'react-native-permissions';
+import {request, PERMISSIONS} from 'react-native-permissions';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
-// import RNFetchBlob from 'rn-fetch-blob';
+import {getApp} from '@react-native-firebase/app';
+import {
+  getMessaging,
+  setBackgroundMessageHandler,
+  onNotificationOpenedApp,
+  getInitialNotification,
+} from '@react-native-firebase/messaging';
 
-const App = () => {
+import {APP_URL, STATUS_BAR_COLOR} from './utils';
+import NotificationService from './NotificationService';
+
+// Suppress Firebase deprecation warnings
+LogBox.ignoreLogs(['This method is deprecated', 'react-native-firebase']);
+
+const ANDROID_SDK_30 = 30;
+
+const INJECTED_JAVASCRIPT = `(function() {
+  const meta = document.createElement('meta'); 
+  meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'); 
+  meta.setAttribute('name', 'viewport'); 
+  document.getElementsByTagName('head')[0].appendChild(meta);
+})();`;
+
+// Register background handler - MUST be outside component
+setBackgroundMessageHandler(getMessaging(getApp()), async remoteMessage => {
+  console.log('[FCM] Background message received:', remoteMessage);
+});
+
+const App: React.FC = () => {
   const insets = useSafeAreaInsets();
-
-  const [statusBarColor, setStatusBarColor] = useState('');
-
-  // Ref to WebView component
   const webViewRef = useRef<WebView | null>(null);
 
-  // State to track whether WebView can go back
+  const [statusBarColor, setStatusBarColor] = useState<string>('');
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
-
-  // State to track back button click count for exit confirmation
   const [backClickCount, setBackClickCount] = useState<number>(0);
+  const [pendingNotificationUrl, setPendingNotificationUrl] = useState<
+    string | null
+  >(null);
 
+  // Initialize notification listeners only (no permission request)
   useEffect(() => {
-    // Request Permission from user
-    const requestPermissions = async () => {
+    NotificationService.initializeListeners();
+  }, []);
+
+  // Handle notification navigation
+  useEffect(() => {
+    const messaging = getMessaging(getApp());
+
+    const unsubscribe = onNotificationOpenedApp(messaging, remoteMessage => {
+      console.log('[App] Notification opened app:', remoteMessage);
+
+      if (remoteMessage.data?.url) {
+        const navUrl = remoteMessage.data.url;
+        setPendingNotificationUrl(navUrl);
+
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: 'navigation',
+            url: navUrl,
+          }),
+        );
+      }
+    });
+
+    getInitialNotification(messaging).then(remoteMessage => {
+      if (remoteMessage?.data?.url) {
+        setPendingNotificationUrl(remoteMessage.data.url);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Send pending notification URL when WebView loads
+  useEffect(() => {
+    if (pendingNotificationUrl && webViewRef.current) {
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'navigation',
+          url: pendingNotificationUrl,
+        }),
+      );
+      setPendingNotificationUrl(null);
+    }
+  }, [pendingNotificationUrl]);
+
+  const requestBasicPermissions = async () => {
+    try {
       if (Platform.OS === 'ios') {
         await request(PERMISSIONS.IOS.CAMERA);
         await request(PERMISSIONS.IOS.PHOTO_LIBRARY);
-      } else if (Platform.OS === 'android') {
-        await request(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE);
+      } else {
         await request(PERMISSIONS.ANDROID.CAMERA);
       }
-    };
-
-    requestPermissions();
-
-    // Function to handle back button press
-    const backAction = (): boolean => {
-      if (canGoBack) {
-        // If WebView can go back, navigate back
-        webViewRef.current?.goBack();
-        return true;
-      } else {
-        if (backClickCount === 0) {
-          // If backClickCount is 0, show toast and set count to 1
-          ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
-          setBackClickCount(1);
-          // Reset count after 2 seconds
-          setTimeout(() => setBackClickCount(0), 2000);
-          return true;
-        } else {
-          // If backClickCount is not 0, exit the app
-          return false;
-        }
-      }
-    };
-
-    // Add event listener for hardware back press
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction,
-    );
-
-    // Remove event listener when component unmounts
-    return () => backHandler.remove();
-  }, [canGoBack, backClickCount]);
-
-  // Function to handle WebView navigation state change
-  const handleNavigationStateChange = (navState: WebViewNavigation): void => {
-    // Update canGoBack state based on navigation state
-    setCanGoBack(navState.canGoBack);
+    } catch (err) {
+      console.warn('Permission request error', err);
+    }
   };
 
-  // Function to get local storage value for statusBarColor
-  const getLocalStorage = async () => {
-    const statusBarColor = await AsyncStorage.getItem('statusBarColor');
-    if (statusBarColor) {
-      setStatusBarColor(statusBarColor);
-      // StatusBar.setBackgroundColor is not available on iOS, so adding it only for android
-      if (Platform.OS === 'android') {
-        StatusBar.setBackgroundColor(statusBarColor, true);
+  const requestAndroidWritePermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      if (Platform.Version < ANDROID_SDK_30) {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          {
+            title: 'Storage permission required',
+            message:
+              'This app needs access to your storage to save files to Downloads',
+            buttonPositive: 'OK',
+            buttonNegative: 'Cancel',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        return false;
       }
+    } catch (err) {
+      console.warn('Write permission request failed', err);
+      return false;
     }
   };
 
   useEffect(() => {
+    requestBasicPermissions();
+
+    const backAction = (): boolean => {
+      if (canGoBack) {
+        webViewRef.current?.goBack();
+        return true;
+      }
+
+      if (backClickCount === 0) {
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+        } else {
+          Alert.alert('', 'Press back again to exit.');
+        }
+        setBackClickCount(1);
+        setTimeout(() => setBackClickCount(0), 2000);
+        return true;
+      }
+
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction,
+    );
+    return () => subscription.remove();
+  }, [canGoBack, backClickCount]);
+
+  useEffect(() => {
+    const getLocalStorage = async () => {
+      try {
+        const color = await AsyncStorage.getItem('statusBarColor');
+        if (color) {
+          setStatusBarColor(color);
+          if (Platform.OS === 'android') {
+            StatusBar.setBackgroundColor(color, true);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load statusBarColor', err);
+      }
+    };
     getLocalStorage();
   }, []);
 
-  // Function to handle messages from WebView
-  const postMessage = async (event: any) => {
+  const handleNavigationStateChange = (navState: WebViewNavigation) => {
+    setCanGoBack(navState.canGoBack);
+  };
+
+  const downloadToLocal = async (
+    remoteUrl: string,
+    suggestedFileName?: string,
+  ) => {
     try {
-      const data = JSON.parse(event.nativeEvent.data);
-      // console.log('postMessage data', data?.data);
+      const urlParts = remoteUrl.split('?')[0].split('/');
+      let filename =
+        suggestedFileName ||
+        urlParts[urlParts.length - 1] ||
+        `file_${Date.now()}`;
 
-      // // Handle statusBarColor
-      if (data?.data?.statusBarColor) {
-        // storing the token in AsyncStorage
-        await AsyncStorage.setItem(
-          'statusBarColor',
-          data?.data?.statusBarColor,
-        );
-        setStatusBarColor(data?.data?.statusBarColor);
-        // StatusBar.setBackgroundColor is not available on iOS, so adding it only for android
-        if (Platform.OS === 'android') {
-          StatusBar.setBackgroundColor(data?.data?.statusBarColor, true);
-        }
+      if (!filename.includes('.') && filename.indexOf('?') !== -1) {
+        filename = `file_${Date.now()}`;
       }
 
-      if (data?.data?.status === 'logout') {
-        await AsyncStorage.clear();
-        setStatusBarColor('');
+      const localPath = `${RNFS.DocumentDirectoryPath}/${filename}`;
+      console.log('[download] saving to localPath:', localPath);
+
+      const exists = await RNFS.exists(localPath);
+      if (exists) {
+        await RNFS.unlink(localPath).catch(() => {});
       }
-      if (data?.data?.videourl) {
-        await Share.open({ url: data.data.videourl }); // Share the URL
-      }
 
-      // if (data?.data?.url) {
-      //   console.log(`Data Data`, data?.data)
-      //   const imageUrl = data.data.url;
-      //   console.log(`Image Url`, imageUrl)
-      //   try {
-      //     // Fetch the image
-      //     const response = await fetch(imageUrl);
-      //     const blob = await response.blob();
+      const dl = RNFS.downloadFile({
+        fromUrl: remoteUrl,
+        toFile: localPath,
+        background: false,
+        discretionary: false,
+      });
 
-      //     // Get the file extension from the URL (e.g., .jpeg, .png)
-      //     const fileExtension = imageUrl.split('.').pop();
+      const result = await dl.promise;
+      console.log('[download] result', result);
 
-      //     // Convert the Blob into base64 using FileReader
-      //     const reader = new FileReader();
-      //     reader.onloadend = async () => {
-      //       const base64Image = reader.result?.split(',')[1];
-
-      //       // If image conversion to base64 is successful, share it
-      //       if (base64Image) {
-      //         await Share.open({
-      //           url: `data:image/${fileExtension};base64,${base64Image}`,
-      //         });
-      //         Alert.alert('Success', 'Image shared successfully.');
-      //       } else {
-      //         throw new Error('Base64 conversion failed');
-      //       }
-      //     };
-      //     reader.readAsDataURL(blob);
-      //   } catch (error) {
-      //     console.error('Error sharing image:', error);
-      //     Alert.alert('Error', 'Failed to download or share the image.');
-      //   }
-      // }
-
-      if (data?.data?.url) {
-        const imageUrl = data.data.url;
-
-        try {
-          // Fetch the image 
-          const response = await fetch(imageUrl, {
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-              'Accept': 'image/*',
-            },
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
-          }
-
-          const blob = await response.blob();
-
-          if (!blob || blob.size === 0) {
-            throw new Error('Failed to fetch image or image is empty.');
-          }
-
-          let mimeType = blob.type;
-
-          if (!mimeType) {
-            const extension = imageUrl.split('.').pop()?.toLowerCase();
-            const extensionToMime: Record<string, string> = {
-              jpg: 'image/jpeg',
-              jpeg: 'image/jpeg',
-              png: 'image/png',
-              svg: 'image/svg+xml',
-              gif: 'image/gif',
-              webp: 'image/webp',
-            };
-            mimeType = extensionToMime[extension] || 'image/jpeg'; // Default to jpeg
-          }
-
-          // Convert the Blob into base64 using FileReader
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            const base64Image = reader.result?.split(',')[1];
-
-            if (base64Image) {
-              await Share.open({
-                url: `data:${mimeType};base64,${base64Image}`,
-              });
-              Alert.alert('Success', 'Image shared successfully.');
-            } else {
-              throw new Error('Base64 conversion failed.');
+      if (
+        result.statusCode &&
+        result.statusCode >= 200 &&
+        result.statusCode < 300
+      ) {
+        if (Platform.OS === 'android' && Platform.Version < ANDROID_SDK_30) {
+          const canWrite = await requestAndroidWritePermission();
+          if (canWrite) {
+            try {
+              const destPath = `${RNFS.DownloadDirectoryPath}/${filename}`;
+              await RNFS.copyFile(localPath, destPath);
+              console.log('[download] copied to public downloads at', destPath);
+              return destPath;
+            } catch (copyErr) {
+              console.warn('[download] copy to pub downloads failed', copyErr);
+              return localPath;
             }
-          };
-
-          reader.onerror = (error) => {
-            console.error('FileReader error:', error);
-            Alert.alert('Error', 'Failed to process the image.');
-          };
-
-          reader.readAsDataURL(blob);
-        } catch (error) {
-          console.error('Error sharing image:', error);
-          Alert.alert('Error', `Failed to download or share the image: ${error.message}`);
+          } else {
+            return localPath;
+          }
         }
+
+        return localPath;
       }
 
-      if (data?.data?.downloadurl) {
-        downloadFile(data.data.downloadurl);
-      }
-
-      if (data?.data?.excelurl) {
-        const excelUrl = data.data.excelurl;
-        shareExcelFile(excelUrl);
-      }
-      if (data?.data?.pdfurl) {
-        const pdfUrl = data.data.pdfurl;
-        sharePdfFile(pdfUrl);
-      }
-
-      // // Handle fcmToken
-      // if (data.fcmToken) {
-      //   await AsyncStorage.setItem('fcmToken', data.fcmToken);
-      //   console.log('FCM token stored in AsyncStorage');
-      // }
-    } catch (error) {
-      console.error('Failed to handle postMessage event', error);
+      throw new Error(`Download failed with status ${result.statusCode}`);
+    } catch (err: any) {
+      console.error('[downloadToLocal] error', err);
+      throw err;
     }
   };
 
   const downloadFile = async (url: string) => {
     try {
-      const fileName = url.split('/').pop(); // Get the file name
-      const fileExtension = fileName?.split('.').pop(); // Extract file extension
-
-      // Use ExternalDirectoryPath for Android to avoid storage issues
-      // const downloadDest =
-      //   Platform.OS === 'android'
-      //     ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
-      //     : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
-
-      const downloadDest =
-        Platform.OS === 'android'
-          ? `${RNFS.DownloadDirectoryPath}/${fileName}` // Save to Downloads folder
-          : `${RNFS.DocumentDirectoryPath}/${fileName}`;
-
-      // Download the file using react-native-fs
-      const downloadResult = await RNFS.downloadFile({
-        fromUrl: url,
-        toFile: downloadDest,
-        background: true, // Continue in background for Android
-        discretionary: true, // Discretionary download for iOS
-      }).promise;
-
-      if (downloadResult && downloadResult.statusCode === 200) {
-        // Alert.alert('Download Success', `File downloaded to ${downloadDest}`);
-        Alert.alert('Download Success');
-      } else {
-        throw new Error('Download failed');
-      }
-    } catch (error) {
+      const finalPath = await downloadToLocal(url);
+      Alert.alert('Download Success', `Saved to: ${finalPath}`);
+      console.log('File saved at:', finalPath);
+    } catch (err) {
       Alert.alert('Download Error', 'Failed to download file.');
-      console.error('Failed to download file:', error);
+      console.error('Failed to download file:', err);
+    }
+  };
+
+  const shareFile = async (
+    remoteUrl: string,
+    mimeType?: string,
+    suggestedFilename?: string,
+  ) => {
+    try {
+      const localPath = await downloadToLocal(remoteUrl, suggestedFilename);
+      const uri = `file://${localPath}`;
+
+      console.log('[shareFile] sharing', uri, 'mimeType', mimeType);
+
+      await Share.open({
+        url: uri,
+        type: mimeType,
+      });
+
+      Alert.alert('Success', 'File shared successfully.');
+    } catch (err: any) {
+      console.error('[shareFile] error', err);
+      Alert.alert(
+        'Error',
+        `Failed to download or share file. ${err?.message || ''}`,
+      );
     }
   };
 
   const shareExcelFile = async (excelUrl: string) => {
-    try {
-      let fileName = excelUrl.split('/').pop(); // Get the file name from the URL
-
-      // Ensure a valid filename is retrieved, fallback if needed
-      if (!fileName || fileName.includes('?')) {
-        fileName = 'default_excel_file.xlsx'; // Fallback file name
-      }
-
-      // Use ExternalDirectoryPath for Android to avoid issues with scoped storage
-      const downloadDest =
-        Platform.OS === 'android'
-          ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
-          : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
-
-      // Download the Excel file to the device
-      const downloadResult = await RNFS.downloadFile({
-        fromUrl: excelUrl,
-        toFile: downloadDest,
-        background: true, // Continue download in the background
-        discretionary: true, // Use discretionary download on iOS
-      }).promise;
-
-      if (downloadResult && downloadResult.statusCode === 200) {
-        // Check if the file exists before sharing
-        const fileExists = await RNFS.exists(downloadDest);
-        if (!fileExists) {
-          throw new Error('File does not exist after download');
-        }
-
-        // Share the downloaded Excel file
-        await Share.open({
-          url: `file://${downloadDest}`, // Sharing the file with its local file path
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // MIME type for Excel files
-          title: 'Share Excel File',
-          subject: 'Check out this Excel file!',
-        });
-
-        Alert.alert('Success', 'Excel file shared successfully.');
-      } else {
-        throw new Error('Download failed');
-      }
-    } catch (error) {
-      console.error('Error sharing Excel file:', error);
-      Alert.alert('Error', 'Failed to download or share the Excel file.');
-    }
+    await shareFile(
+      excelUrl,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      undefined,
+    );
   };
 
   const sharePdfFile = async (pdfUrl: string) => {
+    await shareFile(pdfUrl, 'application/pdf', undefined);
+  };
+
+  const shareImageFromUrl = async (imageUrl: string) => {
     try {
-      const fileName = pdfUrl.split('/').pop(); // Get the file name from the URL
-
-      // Use ExternalDirectoryPath for Android to avoid scoped storage issues
-      const downloadDest =
-        Platform.OS === 'android'
-          ? `${RNFS.ExternalDirectoryPath}/${fileName}` // External directory for Android
-          : `${RNFS.DocumentDirectoryPath}/${fileName}`; // Document directory for iOS
-
-      // Log the download destination for debugging
-      console.log('Download path:', downloadDest);
-
-      // Download the PDF file to the device
-      const downloadResult = await RNFS.downloadFile({
-        fromUrl: pdfUrl,
-        toFile: downloadDest,
-        background: true, // Continue download in the background
-        discretionary: true, // Use discretionary download on iOS
-      }).promise;
-
-
-      // Check if the file was successfully downloaded
-      if (downloadResult && downloadResult.statusCode === 200) {
-        const fileExists = await RNFS.exists(downloadDest);
-
-        if (!fileExists) {
-          throw new Error('File does not exist after download');
-        }
-
-        // Share the downloaded PDF file
-        await Share.open({
-          url: `file://${downloadDest}`, // Sharing the file with its local file path
-          type: 'application/pdf', // MIME type for PDF files
-          title: 'Share PDF File',
-          subject: 'Check out this PDF!',
-        });
-
-        Alert.alert('Success', 'PDF file shared successfully.');
-      } else {
-        throw new Error('Download failed');
-      }
-    } catch (error) {
-      console.error('Error sharing PDF file:', error);
-      Alert.alert('Error', 'Failed to download or share the PDF file.');
+      const ext = (imageUrl.split('.').pop() || 'jpg')
+        .split('?')[0]
+        .toLowerCase();
+      const fileName = `image_${Date.now()}.${ext}`;
+      await shareFile(
+        imageUrl,
+        `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        fileName,
+      );
+    } catch (err) {
+      console.error('Error sharing image', err);
+      Alert.alert('Error', 'Failed to download or share the image.');
     }
   };
 
-  const INJECTED_JAVASCRIPT = `(function() {
-    const meta = document.createElement('meta'); meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'); meta.setAttribute('name', 'viewport'); document.getElementsByTagName('head')[0].appendChild(meta);
-  })();`;
+  const postMessage = async (event: any) => {
+    try {
+      if (!event?.nativeEvent?.data) return;
+
+      let payload: any = null;
+      try {
+        payload = JSON.parse(event.nativeEvent.data);
+      } catch (err) {
+        console.warn(
+          'postMessage: payload not JSON, ignoring',
+          event.nativeEvent.data,
+        );
+        return;
+      }
+
+      const data = payload?.data ?? payload;
+
+      if (!data) return;
+
+      // ==================== ASYNC STORAGE OPERATIONS ====================
+
+      // Get data from AsyncStorage
+      if (data.action === 'getFromAsyncStorage' && data.key) {
+        console.log('[AsyncStorage] Getting key:', data.key);
+        const value = await AsyncStorage.getItem(data.key);
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: 'asyncStorageData',
+            key: data.key,
+            value: value,
+            success: true,
+          }),
+        );
+      }
+
+      // Save data to AsyncStorage
+      if (data.action === 'saveToAsyncStorage' && data.key && data.value) {
+        console.log('[AsyncStorage] Saving key:', data.key);
+        await AsyncStorage.setItem(data.key, data.value);
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: 'asyncStorageSaved',
+            key: data.key,
+            success: true,
+          }),
+        );
+      }
+
+      // Remove data from AsyncStorage
+      if (data.action === 'removeFromAsyncStorage' && data.key) {
+        console.log('[AsyncStorage] Removing key:', data.key);
+        await AsyncStorage.removeItem(data.key);
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: 'asyncStorageRemoved',
+            key: data.key,
+            success: true,
+          }),
+        );
+      }
+
+      // ==================== STATUS BAR COLOR ====================
+
+      if (data.statusBarColor) {
+        const color = data.statusBarColor;
+        await AsyncStorage.setItem('statusBarColor', color);
+        setStatusBarColor(color);
+        if (Platform.OS === 'android') {
+          StatusBar.setBackgroundColor(color, true);
+        }
+      }
+
+      // ==================== LOGOUT ====================
+
+      if (data.status === 'logout') {
+        await AsyncStorage.clear();
+        await NotificationService.clearToken();
+        setStatusBarColor('');
+      }
+
+      // ==================== NOTIFICATION PERMISSION ====================
+
+      // Request notification permission and get FCM token (called after login)
+      if (
+        data.action === 'requestNotificationPermission' &&
+        data.userId &&
+        data.companyId
+      ) {
+        console.log(
+          '[App] Requesting notification permission for user:',
+          data.userId,
+        );
+        const token = await NotificationService.requestPermissionAndGetToken(
+          data.userId,
+          data.companyId,
+        );
+
+        // Save token to AsyncStorage for future reference
+        if (token) {
+          await AsyncStorage.setItem('fcmToken', token);
+        }
+
+        // Send token back to WebView
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: 'fcmTokenResult',
+            success: !!token,
+            token: token,
+          }),
+        );
+      }
+
+      // Get existing FCM token (if already granted)
+      if (data.action === 'getFCMToken') {
+        const token = await NotificationService.getToken();
+        console.log('[FCM] TOKEN:', token);
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: 'fcmToken',
+            token: token,
+          }),
+        );
+      }
+
+      // ==================== SHARING & DOWNLOADS ====================
+
+      // Video share
+      if (data.videourl) {
+        await Share.open({url: data.videourl});
+      }
+
+      // Image share
+      if (data.url) {
+        await shareImageFromUrl(data.url);
+      }
+
+      // Download
+      if (data.downloadurl) {
+        await downloadFile(data.downloadurl);
+      }
+
+      // Excel
+      if (data.excelurl) {
+        await shareExcelFile(data.excelurl);
+      }
+
+      // PDF
+      if (data.pdfurl) {
+        await sharePdfFile(data.pdfurl);
+      }
+    } catch (err) {
+      console.error('[postMessage] Failed to handle event:', err);
+    }
+  };
 
   return (
     <SafeAreaView
-      edges={['right', 'top', 'left']}
+      edges={['right', 'left', 'bottom']}
       style={{
         flex: 1,
         backgroundColor: statusBarColor || STATUS_BAR_COLOR,
+        paddingTop: insets.top,
       }}>
-      {/* Status bar */}
-      <StatusBar backgroundColor={statusBarColor || STATUS_BAR_COLOR} />
-
-      {/* WebView component */}
+      <StatusBar
+        backgroundColor={statusBarColor || STATUS_BAR_COLOR}
+        barStyle="light-content"
+      />
       <WebView
         ref={webViewRef}
-        source={{ uri: APP_URL }}
-        javaScriptEnabled={true} // Enable JavaScript
-        domStorageEnabled={true} // Enable DOM storage
-        startInLoadingState={true} // Start with loading indicator
-        automaticallyAdjustContentInsets={false} // Do not adjust content insets automatically
-        onNavigationStateChange={handleNavigationStateChange} // Handle navigation state change
+        source={{uri: APP_URL}}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        startInLoadingState={true}
+        automaticallyAdjustContentInsets={false}
+        onNavigationStateChange={handleNavigationStateChange}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
         bounces={false}
         onMessage={postMessage}
-        androidLayerType="hardware" // to fix android lag lag issues
+        androidLayerType="hardware"
         scalesPageToFit={false}
         injectedJavaScript={INJECTED_JAVASCRIPT}
         setBuiltInZoomControls={false}
