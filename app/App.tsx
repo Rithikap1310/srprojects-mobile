@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -8,21 +8,22 @@ import {
   PermissionsAndroid,
   LogBox,
 } from 'react-native';
-import WebView, {WebViewNavigation} from 'react-native-webview';
-import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import WebView, { WebViewNavigation } from 'react-native-webview';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {request, PERMISSIONS} from 'react-native-permissions';
+import { request, PERMISSIONS } from 'react-native-permissions';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
-import {getApp} from '@react-native-firebase/app';
+import { getApp } from '@react-native-firebase/app';
 import {
   getMessaging,
   setBackgroundMessageHandler,
   onNotificationOpenedApp,
   getInitialNotification,
 } from '@react-native-firebase/messaging';
+import SplashScreen from 'react-native-splash-screen';
 
-import {APP_URL, STATUS_BAR_COLOR} from './utils';
+import { APP_URL, STATUS_BAR_COLOR } from './utils';
 import NotificationService from './NotificationService';
 
 // Suppress Firebase deprecation warnings
@@ -56,6 +57,7 @@ const App: React.FC = () => {
   // Initialize notification listeners only (no permission request)
   useEffect(() => {
     NotificationService.initializeListeners();
+    SplashScreen.hide();
   }, []);
 
   // Handle notification navigation
@@ -208,7 +210,7 @@ const App: React.FC = () => {
 
       const exists = await RNFS.exists(localPath);
       if (exists) {
-        await RNFS.unlink(localPath).catch(() => {});
+        await RNFS.unlink(localPath).catch(() => { });
       }
 
       const dl = RNFS.downloadFile({
@@ -447,7 +449,7 @@ const App: React.FC = () => {
 
       // Video share
       if (data.videourl) {
-        await Share.open({url: data.videourl});
+        await Share.open({ url: data.videourl });
       }
 
       // Image share
@@ -488,7 +490,8 @@ const App: React.FC = () => {
       />
       <WebView
         ref={webViewRef}
-        source={{uri: APP_URL}}
+        source={{ uri: APP_URL }}
+        userAgent="VRLD-Mobile-App"
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
