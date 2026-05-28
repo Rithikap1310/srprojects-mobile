@@ -597,7 +597,7 @@ __d((function(g,r,i,a,m,e,d){var t=r(d[0]);Object.defineProperty(e,"__esModule",
 __d((function(g,r,i,a,m,e,d){Object.defineProperty(e,"__esModule",{value:!0}),e.default=void 0;var o=r(d[0]);e.default=o.TurboModuleRegistry.getEnforcing('RNPermissions')}),550,[2]);
 __d((function(g,r,i,a,m,e,d){Object.defineProperty(e,"__esModule",{value:!0}),e.platformVersion=void 0,e.uniq=function(n){return n.filter((function(o,t){return null!=o&&n.indexOf(o)===t}))};var n=r(d[0]);e.platformVersion='string'==typeof n.Platform.Version?parseInt(n.Platform.Version,10):n.Platform.Version}),551,[2]);
 __d((function(g,r,i,a,m,e,d){var n=r(d[0]);Object.defineProperty(e,"__esModule",{value:!0}),e.checkLocationAccuracy=function(){return u.apply(this,arguments)},e.openPhotoPicker=function(){return p.apply(this,arguments)},e.requestLocationAccuracy=function(n){return c.apply(this,arguments)};var t=n(r(d[1])),o='Only supported by iOS 14 and above';function u(){return(u=(0,t.default)((function*(){throw new Error(o)}))).apply(this,arguments)}function c(){return(c=(0,t.default)((function*(n){throw new Error(o)}))).apply(this,arguments)}function p(){return(p=(0,t.default)((function*(){throw new Error(o)}))).apply(this,arguments)}}),552,[1,340]);
-__d((function(g,r,i,a,m,e,d){Object.defineProperty(e,"__esModule",{value:!0}),e.STATUS_BAR_COLOR=e.APP_URL=void 0;e.STATUS_BAR_COLOR='#20232a',e.APP_URL='https://app.realgo.in/'}),553,[]);
-__d((function(a,e,d,g,t,n,r){t.exports={name:"getgaruda",displayName:"getgaruda"}}),554,[]);
+__d((function(g,r,i,a,m,e,d){Object.defineProperty(e,"__esModule",{value:!0}),e.STATUS_BAR_COLOR=e.APP_URL=void 0;e.STATUS_BAR_COLOR='#20232a',e.APP_URL='https://srprojects-accounts-frontend.onrender.com/'}),553,[]);
+__d((function(e,s,o,r,t,a,c){t.exports={name:"srprojects",displayName:"SRProjects"}}),554,[]);
 __r(62);
 __r(0);

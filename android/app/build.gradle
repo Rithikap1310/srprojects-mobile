@@ -75,13 +75,13 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.getgaruda"
+    namespace "com.srprojects"
     defaultConfig {
-        applicationId "com.getgaruda"
+        applicationId "com.srprojects"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "1.10"
+        versionCode 12
+        versionName "1.11"
     }
     signingConfigs {
         debug {
@@ -91,10 +91,10 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('getgaruda.keystore')
-            storePassword 'garuda@123'
-            keyAlias 'getgaruda'
-            keyPassword 'garuda@123'
+            storeFile file('srprojects.keystore')
+            storePassword 'srprojects123'
+            keyAlias 'srprojects'
+            keyPassword 'srprojects123'
         }
     }
     buildTypes {
@@ -112,6 +112,11 @@ android {
     lint {
           baseline = file("lint-baseline.xml")
       }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {

@@ -491,7 +491,7 @@ const App: React.FC = () => {
       <WebView
         ref={webViewRef}
         source={{ uri: APP_URL }}
-        userAgent="VRLD-Mobile-App"
+        // userAgent="VRLD-Mobile-App"
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}

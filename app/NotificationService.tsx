@@ -222,28 +222,38 @@ class NotificationService {
       }
 
       const payload = {
-        userId: storedUserId,
-        fcmToken: fcmToken,
+        fcm_token: fcmToken,
         platform: Platform.OS,
-        companyId: storedCompanyId,
         deviceInfo: {
           os: Platform.OS,
           version: Platform.Version,
         },
       };
 
-      console.log('[FCM] 📤 Sending to backend...');
+      // Retrieve the JWT token from AsyncStorage (stored by the web app during login)
+      const userData = await AsyncStorage.getItem('user');
+      let accessToken = '';
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          accessToken = user.accessToken || user.token || '';
+        } catch (e) {
+          accessToken = userData; // Fallback if it's a raw string
+        }
+      }
+
+      console.log('[FCM] 📤 Sending to SRProjects backend...');
       console.log(
-        '[FCM] 📤 URL: https://garuda-server.onrender.com/api/store/pushnotif',
+        '[FCM] 📤 URL: https://srprojects-backend.onrender.com/api/store-token',
       );
-      console.log('[FCM] 📤 Payload:', JSON.stringify(payload, null, 2));
 
       const response = await fetch(
-        'https://garuda-server.onrender.com/api/store/pushnotif',
+        'https://srprojects-backend.onrender.com/api/store-token',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': accessToken ? `Bearer ${accessToken}` : '',
           },
           body: JSON.stringify(payload),
         },
