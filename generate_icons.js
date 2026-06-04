@@ -84,6 +84,9 @@ async function generate() {
         const bg = new Jimp({ width: size, height: size, color: 0xffffffff });
         const logoResized = image.clone().resize({ w: logoSize, h: logoSize });
         bg.composite(logoResized, offset, offset);
+        if (name === 'AppIcon~ios-marketing.png') {
+          bg.colorType(2); // Force RGB without alpha channel (required by Apple App Store)
+        }
         await bg.write(outPath);
         console.log(`Generated iOS ${name} (${size}x${size})`);
       }
