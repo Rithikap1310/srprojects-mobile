@@ -103,7 +103,7 @@ async function generate() {
       console.log('Generating iOS launch images...');
       for (const { name, size } of IOS_LAUNCH_SIZES) {
         const outPath = path.join(IOS_LAUNCH_DIR, name);
-        const logoSize = Math.round(size * 0.5); // 50% size for launch images
+        const logoSize = Math.round(size * 0.3); // 30% size for launch images (prevents clipping on smaller screens)
         const offset = Math.round((size - logoSize) / 2);
         const bg = new Jimp({ width: size, height: size, color: 0x051f3eff }); // Dark blue matching Android (#051f3e)
         const logoResized = image.clone().resize({ w: logoSize, h: logoSize });
