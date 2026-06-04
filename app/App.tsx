@@ -14,20 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request, PERMISSIONS } from 'react-native-permissions';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
-import { getApp } from '@react-native-firebase/app';
-import {
-  getMessaging,
-  setBackgroundMessageHandler,
-  onNotificationOpenedApp,
-  getInitialNotification,
-} from '@react-native-firebase/messaging';
 import SplashScreen from 'react-native-splash-screen';
 
 import { APP_URL, STATUS_BAR_COLOR } from './utils';
-import NotificationService from './NotificationService';
-
-// Suppress Firebase deprecation warnings
-LogBox.ignoreLogs(['This method is deprecated', 'react-native-firebase']);
 
 const ANDROID_SDK_30 = 30;
 
@@ -38,10 +27,6 @@ const INJECTED_JAVASCRIPT = `(function() {
   document.getElementsByTagName('head')[0].appendChild(meta);
 })();`;
 
-// Register background handler - MUST be outside component
-setBackgroundMessageHandler(getMessaging(getApp()), async remoteMessage => {
-  console.log('[FCM] Background message received:', remoteMessage);
-});
 
 const App: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -50,57 +35,10 @@ const App: React.FC = () => {
   const [statusBarColor, setStatusBarColor] = useState<string>('');
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
   const [backClickCount, setBackClickCount] = useState<number>(0);
-  const [pendingNotificationUrl, setPendingNotificationUrl] = useState<
-    string | null
-  >(null);
-
-  // Initialize notification listeners only (no permission request)
+  // Hide splash screen on mount
   useEffect(() => {
-    NotificationService.initializeListeners();
     SplashScreen.hide();
   }, []);
-
-  // Handle notification navigation
-  useEffect(() => {
-    const messaging = getMessaging(getApp());
-
-    const unsubscribe = onNotificationOpenedApp(messaging, remoteMessage => {
-      console.log('[App] Notification opened app:', remoteMessage);
-
-      if (remoteMessage.data?.url) {
-        const navUrl = remoteMessage.data.url;
-        setPendingNotificationUrl(navUrl);
-
-        webViewRef.current?.postMessage(
-          JSON.stringify({
-            type: 'navigation',
-            url: navUrl,
-          }),
-        );
-      }
-    });
-
-    getInitialNotification(messaging).then(remoteMessage => {
-      if (remoteMessage?.data?.url) {
-        setPendingNotificationUrl(remoteMessage.data.url);
-      }
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // Send pending notification URL when WebView loads
-  useEffect(() => {
-    if (pendingNotificationUrl && webViewRef.current) {
-      webViewRef.current.postMessage(
-        JSON.stringify({
-          type: 'navigation',
-          url: pendingNotificationUrl,
-        }),
-      );
-      setPendingNotificationUrl(null);
-    }
-  }, [pendingNotificationUrl]);
 
   const requestBasicPermissions = async () => {
     try {
@@ -397,7 +335,6 @@ const App: React.FC = () => {
 
       if (data.status === 'logout') {
         await AsyncStorage.clear();
-        await NotificationService.clearToken();
         setStatusBarColor('');
       }
 
@@ -410,37 +347,25 @@ const App: React.FC = () => {
         data.companyId
       ) {
         console.log(
-          '[App] Requesting notification permission for user:',
+          '[App] Requesting notification permission (disabled/mocked) for user:',
           data.userId,
         );
-        const token = await NotificationService.requestPermissionAndGetToken(
-          data.userId,
-          data.companyId,
-        );
-
-        // Save token to AsyncStorage for future reference
-        if (token) {
-          await AsyncStorage.setItem('fcmToken', token);
-        }
-
-        // Send token back to WebView
+        // Send failure token back to WebView immediately since FCM is disabled/removed
         webViewRef.current?.postMessage(
           JSON.stringify({
             type: 'fcmTokenResult',
-            success: !!token,
-            token: token,
+            success: false,
+            token: null,
           }),
         );
       }
 
       // Get existing FCM token (if already granted)
       if (data.action === 'getFCMToken') {
-        const token = await NotificationService.getToken();
-        console.log('[FCM] TOKEN:', token);
         webViewRef.current?.postMessage(
           JSON.stringify({
             type: 'fcmToken',
-            token: token,
+            token: null,
           }),
         );
       }
