@@ -48,17 +48,30 @@ async function generate() {
       const outPathNormal = path.join(ANDROID_RES_DIR, dir, 'ic_launcher.png');
       const outPathRound = path.join(ANDROID_RES_DIR, dir, 'ic_launcher_round.png');
       
-      const resized = image.clone().resize({ w: size, h: size });
-      await resized.write(outPathNormal);
-      await resized.write(outPathRound);
+      const logoSize = Math.round(size * 0.7); // 70% size for app icons
+      const offset = Math.round((size - logoSize) / 2);
+      
+      const bgNormal = new Jimp({ width: size, height: size, color: 0xffffffff });
+      const bgRound = new Jimp({ width: size, height: size, color: 0xffffffff });
+      const logoResized = image.clone().resize({ w: logoSize, h: logoSize });
+      
+      bgNormal.composite(logoResized, offset, offset);
+      bgRound.composite(logoResized, offset, offset);
+      
+      await bgNormal.write(outPathNormal);
+      await bgRound.write(outPathRound);
       console.log(`Generated Android ${dir} (${size}x${size})`);
     }
 
     // Generate Android splash screen logo
     const splashSize = 512;
     const splashOut = path.join(ANDROID_RES_DIR, 'drawable', 'splash_logo.png');
-    const splashImage = image.clone().resize({ w: splashSize, h: splashSize });
-    await splashImage.write(splashOut);
+    const splashLogoSize = Math.round(splashSize * 0.7);
+    const splashOffset = Math.round((splashSize - splashLogoSize) / 2);
+    const bgSplash = new Jimp({ width: splashSize, height: splashSize, color: 0xffffffff });
+    const logoSplashResized = image.clone().resize({ w: splashLogoSize, h: splashLogoSize });
+    bgSplash.composite(logoSplashResized, splashOffset, splashOffset);
+    await bgSplash.write(splashOut);
     console.log(`Generated splash_logo.png (${splashSize}x${splashSize})`);
 
     // Generate iOS icons
@@ -66,8 +79,12 @@ async function generate() {
       console.log('Generating iOS icons...');
       for (const { name, size } of IOS_SIZES) {
         const outPath = path.join(IOS_ICON_DIR, name);
-        const resized = image.clone().resize({ w: size, h: size });
-        await resized.write(outPath);
+        const logoSize = Math.round(size * 0.7); // 70% size for app icons
+        const offset = Math.round((size - logoSize) / 2);
+        const bg = new Jimp({ width: size, height: size, color: 0xffffffff });
+        const logoResized = image.clone().resize({ w: logoSize, h: logoSize });
+        bg.composite(logoResized, offset, offset);
+        await bg.write(outPath);
         console.log(`Generated iOS ${name} (${size}x${size})`);
       }
     } else {
@@ -86,8 +103,12 @@ async function generate() {
       console.log('Generating iOS launch images...');
       for (const { name, size } of IOS_LAUNCH_SIZES) {
         const outPath = path.join(IOS_LAUNCH_DIR, name);
-        const resized = image.clone().resize({ w: size, h: size });
-        await resized.write(outPath);
+        const logoSize = Math.round(size * 0.5); // 50% size for launch images
+        const offset = Math.round((size - logoSize) / 2);
+        const bg = new Jimp({ width: size, height: size, color: 0x051f3eff }); // Dark blue matching Android (#051f3e)
+        const logoResized = image.clone().resize({ w: logoSize, h: logoSize });
+        bg.composite(logoResized, offset, offset);
+        await bg.write(outPath);
         console.log(`Generated iOS launch image ${name} (${size}x${size})`);
       }
     } else {
