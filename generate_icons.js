@@ -74,7 +74,27 @@ async function generate() {
       console.warn(`iOS icon directory not found: ${IOS_ICON_DIR}`);
     }
 
-    console.log('All icons generated successfully!');
+    // Generate iOS launch/splash screen images
+    const IOS_LAUNCH_DIR = path.join(__dirname, 'ios/srprojects/Images.xcassets/LaunchImage.imageset');
+    const IOS_LAUNCH_SIZES = [
+      { name: 'LaunchImage.png', size: 320 },
+      { name: 'LaunchImage~iphone-320x480.png', size: 640 },
+      { name: 'LaunchImage~iphone_640x960.png', size: 960 }
+    ];
+
+    if (fs.existsSync(IOS_LAUNCH_DIR)) {
+      console.log('Generating iOS launch images...');
+      for (const { name, size } of IOS_LAUNCH_SIZES) {
+        const outPath = path.join(IOS_LAUNCH_DIR, name);
+        const resized = image.clone().resize({ w: size, h: size });
+        await resized.write(outPath);
+        console.log(`Generated iOS launch image ${name} (${size}x${size})`);
+      }
+    } else {
+      console.warn(`iOS launch image directory not found: ${IOS_LAUNCH_DIR}`);
+    }
+
+    console.log('All icons and launch images generated successfully!');
   } catch (error) {
     console.error('Error generating icons:', error);
   }
