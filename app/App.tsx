@@ -7,6 +7,7 @@ import {
   ToastAndroid,
   PermissionsAndroid,
   LogBox,
+  Linking,
 } from 'react-native';
 import WebView, { WebViewNavigation } from 'react-native-webview';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -377,9 +378,21 @@ const App: React.FC = () => {
         await Share.open({ url: data.videourl });
       }
 
-      // Image share
+      // Image share or native linking (phone calls, email, whatsapp)
       if (data.url) {
-        await shareImageFromUrl(data.url);
+        const urlStr = data.url;
+        if (
+          urlStr.startsWith('tel:') ||
+          urlStr.startsWith('mailto:') ||
+          urlStr.includes('wa.me') ||
+          urlStr.startsWith('whatsapp:')
+        ) {
+          Linking.openURL(urlStr).catch((err) => {
+            console.error('[WebView Linking] Failed to open URL:', urlStr, err);
+          });
+        } else {
+          await shareImageFromUrl(urlStr);
+        }
       }
 
       // Download
