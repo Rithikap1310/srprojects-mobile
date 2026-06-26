@@ -378,15 +378,23 @@ const App: React.FC = () => {
         await Share.open({ url: data.videourl });
       }
 
-      // Image share or native linking (phone calls, email, whatsapp)
+      // Image share or native linking (phone calls, email, whatsapp, maps/external links)
       if (data.url) {
         const urlStr = data.url;
-        if (
+        const isNativeScheme =
           urlStr.startsWith('tel:') ||
           urlStr.startsWith('mailto:') ||
           urlStr.includes('wa.me') ||
-          urlStr.startsWith('whatsapp:')
-        ) {
+          urlStr.startsWith('whatsapp:');
+        
+        const isImageUrl =
+          urlStr.includes('.png') ||
+          urlStr.includes('.jpg') ||
+          urlStr.includes('.jpeg') ||
+          urlStr.includes('.webp') ||
+          urlStr.includes('.gif');
+
+        if (isNativeScheme || (urlStr.startsWith('http') && !isImageUrl)) {
           Linking.openURL(urlStr).catch((err) => {
             console.error('[WebView Linking] Failed to open URL:', urlStr, err);
           });
